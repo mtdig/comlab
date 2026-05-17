@@ -45,14 +45,25 @@ def init_db():
     with get_db() as conn:
         conn.execute("""
             CREATE TABLE IF NOT EXISTS attempts (
-                term    TEXT    NOT NULL,
-                unit    INTEGER NOT NULL,
-                mode    TEXT    NOT NULL,
-                score   INTEGER NOT NULL,
-                correct INTEGER NOT NULL,
-                ts      BIGINT  NOT NULL
+                term       TEXT    NOT NULL,
+                unit       INTEGER NOT NULL,
+                mode       TEXT    NOT NULL,
+                score      INTEGER NOT NULL,
+                correct    INTEGER NOT NULL,
+                ts         BIGINT  NOT NULL,
+                time_taken INTEGER NOT NULL DEFAULT 0,
+                expired    INTEGER NOT NULL DEFAULT 0
             )
         """)
+        # Migrate existing tables that lack the new columns
+        existing = {r[0] for r in conn.execute(
+            "SELECT column_name FROM information_schema.columns "
+            "WHERE table_name = 'attempts'"
+        ).fetchall()}
+        if 'time_taken' not in existing:
+            conn.execute("ALTER TABLE attempts ADD COLUMN time_taken INTEGER DEFAULT 0")
+        if 'expired' not in existing:
+            conn.execute("ALTER TABLE attempts ADD COLUMN expired INTEGER DEFAULT 0")
 
 #  Load glossary 
 
@@ -200,7 +211,38 @@ def _pick_question(mode: str, unit_filter: str) -> dict:
     pool = [e for e in GLOSSARY if e["unit"] in units] if units else GLOSSARY
     if not pool:
         raise HTTPException(404, "No entries for that unit")
-    return random.choice(pool)
+    with get_db() as conn:
+        cur = conn.execute(
+            """
+            SELECT term, unit,
+                   AVG(score)      AS avg_score,
+                   SUM(expired)    AS total_expired,
+                   AVG(time_taken) AS avg_time
+            FROM attempts WHERE mode = ? GROUP BY term, unit
+            """,
+            [mode],
+        )
+        stats = {(r["term"], r["unit"]): r for r in to_dicts(cur)}
+
+    # Phase 1 — exhaust unseen terms before repeating anything
+    unseen = [e for e in pool if (e["term"], e["unit"]) not in stats]
+    if unseen:
+        return random.choice(unseen)
+
+    # Phase 2 — all seen: weight by fail ratio and avg time taken (longer = worse)
+    weights = []
+    for e in pool:
+        st = stats[(e["term"], e["unit"])]
+        score_factor   = max(0.0, (100.0 - (st["avg_score"]     or 0)) / 100.0)
+        time_factor    = min((st["avg_time"]      or 0) / 60.0, 1.0)
+        expired_factor = min((st["total_expired"] or 0) / 5.0,  1.0)
+        weights.append(1.0 + 2.0 * score_factor + 1.0 * time_factor + 1.5 * expired_factor)
+    return random.choices(pool, weights=weights, k=1)[0]
+
+def _pool_size(unit_filter: str) -> int:
+    units = [int(u) for u in unit_filter.split(',') if u.strip()]
+    pool = [e for e in GLOSSARY if e["unit"] in units] if units else GLOSSARY
+    return len(pool)
 
 #  Routes 
 
@@ -214,6 +256,7 @@ def index(request: Request):
         "unit":        entry["unit"],
         "definition":  entry["definition"],
         "unit_filter": "",
+        "pool_size":   _pool_size(""),
         "answered":    False,
         "result":      None,
     }
@@ -228,6 +271,7 @@ def question(request: Request, mode: str = "def_to_term", unit: str = ""):
         "unit":        entry["unit"],
         "definition":  entry["definition"],
         "unit_filter": unit,
+        "pool_size":   _pool_size(unit),
         "answered":    False,
         "result":      None,
     }
@@ -241,13 +285,18 @@ def grade(
     mode:        str = Form(...),
     unit_filter: str = Form(""),
     answer:      str = Form(""),
+    expired:     int = Form(0),
+    time_taken:  int = Form(0),
 ):
     unit_int = int(unit)
     entry = find_entry(term, unit_int)
     if not entry:
         raise HTTPException(404, f"Term '{term}' not found in unit {unit_int}")
 
-    if mode == "def_to_term":
+    if expired:
+        correct, score, feedback = False, 0, "⏱ Time's up!"
+        reference = entry["term"] if mode == "def_to_term" else entry["definition"]
+    elif mode == "def_to_term":
         correct, score, feedback = grade_def_to_term(answer, entry["term"])
         reference = entry["term"]
     else:
@@ -258,8 +307,10 @@ def grade(
 
     with get_db() as conn:
         conn.execute(
-            "INSERT INTO attempts (term, unit, mode, score, correct, ts) VALUES (?, ?, ?, ?, ?, ?)",
-            [entry["term"], entry["unit"], mode, score, int(correct), int(time.time())]
+            "INSERT INTO attempts (term, unit, mode, score, correct, ts, time_taken, expired) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            [entry["term"], entry["unit"], mode, score, int(correct),
+             int(time.time()), max(0, time_taken), int(bool(expired))]
         )
 
     result = _build_result(correct, score, feedback, reference)
@@ -271,6 +322,7 @@ def grade(
         "unit":        entry["unit"],
         "definition":  entry["definition"],
         "unit_filter": unit_filter,
+        "pool_size":   _pool_size(unit_filter),
         "answered":    True,
         "result":      result,
     }
@@ -284,6 +336,7 @@ def recheck(
     mode:        str = Form(...),
     unit_filter: str = Form(""),
     answer:      str = Form(""),
+    prev_score:  int = Form(0),
 ):
     unit_int = int(unit)
     entry = find_entry(term, unit_int)
@@ -291,9 +344,22 @@ def recheck(
         raise HTTPException(404, f"Term '{term}' not found in unit {unit_int}")
 
     correct, score, feedback = grade_def_to_term_ollama(answer, entry["term"], entry["definition"])
+
+    # Overwrite the most recent attempt for this term/unit/mode with the AI verdict
+    with get_db() as conn:
+        conn.execute(
+            """UPDATE attempts SET score = ?, correct = ?
+               WHERE ts = (SELECT MAX(ts) FROM attempts WHERE term = ? AND unit = ? AND mode = ?)
+                 AND term = ? AND unit = ? AND mode = ?""",
+            [score, int(correct),
+             entry["term"], entry["unit"], mode,
+             entry["term"], entry["unit"], mode],
+        )
+
     result = _build_result(correct, score, feedback, entry["term"])
     result["user_answer"] = answer
-    result["ai_checked"] = True
+    result["ai_checked"]  = True
+    result["prev_score"]  = prev_score
 
     ctx = {
         "mode":        mode,
@@ -301,6 +367,7 @@ def recheck(
         "unit":        entry["unit"],
         "definition":  entry["definition"],
         "unit_filter": unit_filter,
+        "pool_size":   _pool_size(unit_filter),
         "answered":    True,
         "result":      result,
     }
@@ -354,6 +421,12 @@ def api_weak_spots(limit: int = 10):
             LIMIT ?
         """, [limit])
         return to_dicts(cur)
+
+@app.post("/api/reset")
+def api_reset():
+    with get_db() as conn:
+        conn.execute("DELETE FROM attempts")
+    return {"ok": True}
 
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 

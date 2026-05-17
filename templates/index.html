@@ -29,6 +29,13 @@
       <div class="stat-value yellow" id="stat-score">—</div>
       <div class="stat-label">Avg. Score</div>
     </div>
+    <div class="stat">
+      <div class="stat-value accent" id="stat-coverage">— / —</div>
+      <div class="stat-label">Terms seen</div>
+    </div>
+  </div>
+  <div class="stats-actions">
+    <button type="button" class="link-btn" onclick="resetProgress()">↺ Reset progress</button>
   </div>
 
   <!-- Hidden mode input (drives htmx requests) -->
@@ -55,6 +62,12 @@
         onclick="setMode('term_to_def')">
         Term → Definition
       </button>
+    </div>
+    <div class="pill-group" id="timer-group">
+      <button type="button" class="pill" data-timer="0"  onclick="setTimerMax(0,  this)">∞</button>
+      <button type="button" class="pill" data-timer="15" onclick="setTimerMax(15, this)">15s</button>
+      <button type="button" class="pill active" data-timer="30" onclick="setTimerMax(30, this)">30s</button>
+      <button type="button" class="pill" data-timer="60" onclick="setTimerMax(60, this)">60s</button>
     </div>
     <input type="hidden" id="unit-hidden" name="unit" value="">
     <div class="unit-pills" id="practice-unit-pills">

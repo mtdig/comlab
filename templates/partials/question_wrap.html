@@ -1,6 +1,9 @@
-<div id="question-wrap" data-mode="{{ mode }}">
+<div id="question-wrap" data-mode="{{ mode }}" data-term="{{ term }}" data-pool-size="{{ pool_size }}">
 
-  <div class="card">
+  <div class="card" style="position:relative">
+    {% if not answered %}
+    <div class="timer-display" id="timer-display"></div>
+    {% endif %}
     <form id="grade-form"
       hx-post="/grade"
       hx-target="#question-wrap"
@@ -11,6 +14,8 @@
       <input type="hidden" name="unit"        value="{{ unit }}">
       <input type="hidden" name="mode"        value="{{ mode }}">
       <input type="hidden" name="unit_filter" value="{{ unit_filter }}">
+      <input type="hidden" name="expired"     value="0" id="expired-flag">
+      <input type="hidden" name="time_taken"  value="0" id="time-taken-input">
 
       <!-- Mode label -->
       <div class="mode-label">
@@ -57,7 +62,7 @@
   <div id="result-card"
     class="result{% if result %} show {{ result.cls }}{% endif %}"
     {% if result %}data-score="{{ result.score }}" data-correct="{{ result.correct | int }}"{% endif %}
-    {% if result and result.ai_checked %}data-ai-recheck="1"{% endif %}>
+    {% if result and result.ai_checked %}data-ai-recheck="1" data-prev-score="{{ result.prev_score | default(0) }}"{% endif %}>
     {% if result %}
     <div class="result-header">
       <span class="result-icon">{{ result.icon }}</span>
@@ -78,7 +83,7 @@
       <div class="reference-label">Reference answer</div>
       <div class="reference-text">{{ result.reference }}</div>
     </div>
-    {% if result.ai_checked %}
+    {% if result.ai_checked and not result.correct %}
     <p class="ai-recheck-note">AI recheck · not counted towards stats</p>
     {% endif %}
     <div class="btn-row" style="margin-top:16px">
@@ -100,6 +105,7 @@
         <input type="hidden" name="mode"        value="{{ mode }}">
         <input type="hidden" name="unit_filter" value="{{ unit_filter }}">
         <input type="hidden" name="answer"      value="{{ result.user_answer }}">
+        <input type="hidden" name="prev_score"  value="{{ result.score }}">
         <button type="submit" class="secondary">
           <span class="htmx-indicator"><span class="spinner"></span></span>
           Ask AI →

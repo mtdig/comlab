@@ -1,5 +1,11 @@
-//  Session stats (client-side) 
-const session = { total: 0, correct: 0, scoreSum: 0 };
+//  Timer state
+let timerMax      = parseInt(localStorage.getItem('timerMax') ?? '30', 10);
+let timerInterval = null;
+let timerStart    = null;
+
+//  Session stats (client-side)
+const session     = { total: 0, correct: 0, scoreSum: 0 };
+const sessionTerms = new Set();
 
 function updateStats() {
   document.getElementById('stat-total').textContent   = session.total;
@@ -8,6 +14,14 @@ function updateStats() {
     ? Math.round(session.scoreSum / session.total) + '%'
     : '—';
   document.getElementById('stat-score').textContent = avg;
+}
+
+function updateCoverage() {
+  const qWrap    = document.getElementById('question-wrap');
+  const poolSize = parseInt(qWrap?.dataset.poolSize || '0', 10);
+  const el = document.getElementById('stat-coverage');
+  if (!el) return;
+  el.textContent = poolSize > 0 ? `${sessionTerms.size} / ${poolSize}` : '— / —';
 }
 
 //  Section switching 
@@ -104,6 +118,65 @@ function hideAll() {
   document.querySelectorAll(`#study-cards ${sel}`).forEach(el => el.classList.add('blurred'));
 }
 
+//  Timer
+function startTimer() {
+  const display = document.getElementById('timer-display');
+  if (!display) return;
+  stopTimer();
+  timerStart = Date.now();
+  if (timerMax <= 0) {
+    display.textContent = '∞';
+    display.className = 'timer-display timer-disabled';
+    timerStart = null;
+    return;
+  }
+  let remaining = timerMax;
+  display.textContent = remaining;
+  display.className = 'timer-display';
+  timerInterval = setInterval(() => {
+    remaining--;
+    display.textContent = remaining;
+    if (remaining / timerMax <= 0.3) display.classList.add('timer-urgent');
+    if (remaining <= 0) { stopTimer(); expireQuestion(); }
+  }, 1000);
+}
+
+function stopTimer() {
+  clearInterval(timerInterval);
+  timerInterval = null;
+}
+
+function getTimeTaken() {
+  return timerStart ? Math.round((Date.now() - timerStart) / 1000) : 0;
+}
+
+function expireQuestion() {
+  const expiredInput   = document.getElementById('expired-flag');
+  const timeTakenInput = document.getElementById('time-taken-input');
+  if (!expiredInput) return;
+  expiredInput.value   = '1';
+  if (timeTakenInput) timeTakenInput.value = timerMax;
+  timerStart = null;
+  document.getElementById('grade-form')?.requestSubmit();
+}
+
+function setTimerMax(val, btn) {
+  timerMax = val;
+  localStorage.setItem('timerMax', val);
+  document.querySelectorAll('#timer-group .pill').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  if (!document.getElementById('result-card')?.classList.contains('show')) startTimer();
+}
+
+function resetProgress() {
+  if (!confirm('Reset all progress? This cannot be undone.')) return;
+  fetch('/api/reset', { method: 'POST' })
+    .then(() => {
+      session.total = 0; session.correct = 0; session.scoreSum = 0;
+      updateStats();
+    });
+}
+
 //  Keyboard shortcuts 
 document.addEventListener('keydown', e => {
   if (document.activeElement?.id !== 'answer-input') return;
@@ -121,19 +194,44 @@ document.addEventListener('keydown', e => {
   }
 }, true);
 
-//  htmx lifecycle 
+//  htmx lifecycle
+document.body.addEventListener('htmx:beforeRequest', (e) => {
+  if (e.detail.elt?.id === 'grade-form') {
+    const expiredInput   = document.getElementById('expired-flag');
+    const timeTakenInput = document.getElementById('time-taken-input');
+    if (timeTakenInput && expiredInput?.value !== '1') {
+      timeTakenInput.value = getTimeTaken();
+    }
+    stopTimer();
+    timerStart = null;
+  }
+});
+
 document.body.addEventListener('htmx:afterSettle', () => {
   const resultCard = document.getElementById('result-card');
   const hasResult  = resultCard?.classList.contains('show');
 
   if (hasResult && !resultCard.dataset.counted) {
     resultCard.dataset.counted = '1';
+    stopTimer();
     if (!resultCard.dataset.aiRecheck) {
       const score     = parseInt(resultCard.dataset.score   || '0', 10);
       const isCorrect = resultCard.dataset.correct === '1';
       session.total++;
       if (isCorrect) session.correct++;
       session.scoreSum += score;
+      updateStats();
+      // Track unique terms seen
+      const qWrap = document.getElementById('question-wrap');
+      const term  = qWrap?.dataset.term;
+      if (term) sessionTerms.add(term + '|' + (qWrap.dataset.mode || ''));
+      updateCoverage();
+    } else if (resultCard.dataset.correct === '1') {
+      // AI recheck upgraded the answer — patch stats with the score delta
+      const score     = parseInt(resultCard.dataset.score     || '0', 10);
+      const prevScore = parseInt(resultCard.dataset.prevScore || '0', 10);
+      session.correct++;
+      session.scoreSum += score - prevScore;
       updateStats();
     }
     // Animate score bar (starts at 0 via CSS, trigger transition after paint)
@@ -151,7 +249,20 @@ document.body.addEventListener('htmx:afterSettle', () => {
       document.querySelectorAll('#study-cards .study-term')
         .forEach(el => el.classList.toggle('blurred', studyReveal === 'hide-term'));
     } else {
+      startTimer();
+      updateCoverage();
       document.getElementById('answer-input')?.focus();
     }
   }
+});
+
+//  Initialization
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('#timer-group .pill').forEach(btn => {
+    btn.classList.toggle('active', parseInt(btn.dataset.timer) === timerMax);
+  });
+  if (!document.getElementById('result-card')?.classList.contains('show')) {
+    startTimer();
+  }
+  updateCoverage();
 });
