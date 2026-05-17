@@ -9,6 +9,7 @@ wheels/
 # Virtual environments
 .venv
 progress.db
-progress.duckdb
+data/progress.duckdb
 CommLab.glossary.pdf
 media/comlab.mov
+progress.duckdb

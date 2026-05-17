@@ -6,7 +6,7 @@ __pycache__/
 *.pyo
 *.pyd
 .python-version
-progress.duckdb
+data/progress.duckdb
 tests/
 *.pdf
 dist/

@@ -26,6 +26,7 @@ EXPOSE ${PORT}
 # or override with -e OLLAMA_HOST=http://<host-ip>:11434.
 ENV OLLAMA_HOST=http://host.docker.internal:11434
 
-# Mount a volume or bind-mount to persist the DuckDB file:
-#   docker run -v ./progress.duckdb:/app/progress.duckdb ...
+# Mount the data directory to persist the DuckDB file:
+#   docker run -v ./data:/app/data ...
+RUN mkdir -p /app/data
 CMD uv run uvicorn main:app --host 0.0.0.0 --port "${PORT}"

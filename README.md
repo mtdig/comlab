@@ -69,16 +69,6 @@ sudo apt-get install docker-ce docker-ce-cli docker-compose-plugin
 
 ### Step 3 — Run the container
 
-**Create the progress file first** (prevents Docker mounting it as a directory):
-
-```bash
-# macOS / Linux
-touch progress.duckdb
-
-# Windows (PowerShell)
-New-Item progress.duckdb -ItemType File
-```
-
 **Create a `docker-compose.yml`** in any empty folder:
 
 ```yaml
@@ -90,7 +80,7 @@ services:
     environment:
       OLLAMA_HOST: "http://host.docker.internal:11434"
     volumes:
-      - ./progress.duckdb:/app/progress.duckdb
+      - ./data:/app/data
     restart: unless-stopped
 ```
 
@@ -150,7 +140,6 @@ uv run pytest
 
 ```bash
 docker compose build
-touch progress.duckdb   # or: New-Item progress.duckdb -ItemType File (PowerShell)
 docker compose up
 ```
 
