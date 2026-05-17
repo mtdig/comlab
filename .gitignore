@@ -10,3 +10,4 @@ wheels/
 .venv
 progress.db
 progress.duckdb
+CommLab.glossary.pdf

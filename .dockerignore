@@ -1,0 +1,14 @@
+.venv/
+.git/
+.pytest_cache/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.python-version
+progress.duckdb
+tests/
+*.pdf
+dist/
+build/
+*.egg-info/

@@ -1,87 +1,188 @@
 # CommLab Glossary Trainer
 
-Vocabulary exercise app for the CommLab English glossary (12 units, ~300 terms).
+Vocabulary practice app for the CommLab English glossary — 12 units, 444 terms.
 
 ## Features
 
-- **Mode 1 – Definition → Word**: Given the definition, type the correct term  
-  (graded with exact/fuzzy string matching — instant)
+- **Definition → Term**: given the definition, type the correct term  
+  (graded instantly with exact/fuzzy string matching)
+- **Term → Definition**: given the term, explain it in your own words  
+  (graded by a local LLM via Ollama — rewards understanding over verbatim recall)
+- Filter by unit or practice all units at once
+- Spaced-repetition selector: unseen terms first, then weighted by score/speed/expiry
+- Session stats (answered / correct / avg score / coverage)
+- Study mode: browse cards grouped or mixed, term-first or definition-first
+- Progress persisted in DuckDB (`progress.duckdb`)
 
-- **Mode 2 – Word → Define it**: Given the term, explain it in your own words  
-  (graded by a local LLM via Ollama — lenient, rewards understanding)
+---
 
-- Filter by unit (or train all units at once)
-- Session stats (answered / correct / avg score)
-- All progress logged to SQLite (`progress.db`)
-- `/api/weak_spots` endpoint shows your most missed terms
+## Running the application
 
-## Setup
+### Step 1 — Install Ollama
 
-### 1. Install Python dependencies
+Ollama runs the local AI model used for grading *Term → Definition* answers.
 
-```bash
-pip install -r requirements.txt
-```
-
-### 2. Make sure Ollama is running and has a model pulled
-
-```bash
-ollama serve          # if not already running as a service
-ollama pull mistral   # ~4 GB, good balance of speed and quality
-# Alternatives for your RTX 2080 Super (8 GB VRAM):
-# ollama pull phi3:mini     # ~2 GB, very fast
-# ollama pull llama3.2:3b   # ~2 GB, fast
-# ollama pull llama3.1:8b   # ~5 GB, most capable
-```
-
-### 3. (Optional) Change the model in main.py
-
-```python
-OLLAMA_MODEL = "mistral"   # line ~20 of main.py
-```
-
-### 4. Run the server
+**macOS**
 
 ```bash
-uvicorn main:app --reload --host 0.0.0.0 --port 8000
+brew install ollama
+ollama serve   # start the background service
 ```
 
-### 5. Open in browser
+Or download the desktop app from **https://ollama.com/download**.
 
-```
-http://localhost:8000
+**Windows**
+
+Download and run the installer from **https://ollama.com/download**.  
+Ollama installs as a system service and starts automatically.
+
+**Linux**
+
+```bash
+curl -fsSL https://ollama.com/install.sh | sh
+ollama serve   # or: sudo systemctl enable --now ollama
 ```
 
-## API Endpoints
+Then pull the model (required for *Term → Definition* mode):
+
+```bash
+ollama pull mistral   # ~4 GB
+```
+
+---
+
+### Step 2 — Install Docker
+
+Download **Docker Desktop** from **https://www.docker.com/products/docker-desktop**  
+(macOS and Windows — includes Compose).
+
+On Linux, install the Docker Engine and the Compose plugin:
+
+```bash
+# example for Debian/Ubuntu
+sudo apt-get install docker-ce docker-ce-cli docker-compose-plugin
+```
+
+---
+
+### Step 3 — Run the container
+
+**Create the progress file first** (prevents Docker mounting it as a directory):
+
+```bash
+# macOS / Linux
+touch progress.duckdb
+
+# Windows (PowerShell)
+New-Item progress.duckdb -ItemType File
+```
+
+**Create a `docker-compose.yml`** in any empty folder:
+
+```yaml
+services:
+  comlab:
+    image: mtdig/comlab:latest
+    ports:
+      - "8000:8000"
+    environment:
+      OLLAMA_HOST: "http://host.docker.internal:11434"
+    volumes:
+      - ./progress.duckdb:/app/progress.duckdb
+    restart: unless-stopped
+```
+
+> **Linux only** — `host.docker.internal` is not provided automatically.  
+> Either replace it with your machine's LAN IP (`http://192.168.x.x:11434`),  
+> or add `extra_hosts: ["host.docker.internal:host-gateway"]` to the service.
+
+**Start it:**
+
+```bash
+docker compose up -d
+```
+
+Open **http://localhost:8000**.
+
+To stop: `docker compose down`  
+To update to a newer image: `docker compose pull && docker compose up -d`
+
+---
+
+## Development setup
+
+> Only needed if you want to modify the source code.
+
+**1. Install [uv](https://docs.astral.sh/uv/getting-started/installation/)**
+
+```bash
+# macOS / Linux
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Windows (PowerShell)
+powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+```
+
+**2. Clone and install**
+
+```bash
+git clone https://github.com/mtdig/comlab.git
+cd comlab
+uv sync
+```
+
+**3. Run (with live reload)**
+
+```bash
+uv run comlab
+```
+
+**4. Run tests**
+
+```bash
+uv sync --group dev
+uv run pytest
+```
+
+**Build the Docker image locally**
+
+```bash
+docker compose build
+touch progress.duckdb   # or: New-Item progress.duckdb -ItemType File (PowerShell)
+docker compose up
+```
+
+To change the model, edit `OLLAMA_MODEL` in `src/app/config.py`.
+
+---
+
+## Configuration
+
+| Variable | Default | Description |
+|---|---|---|
+| `PORT` | `8000` | HTTP port the server listens on |
+| `OLLAMA_HOST` | `http://host.docker.internal:11434` | Ollama API base URL |
+
+`OLLAMA_MODEL` is set in `src/app/config.py` (default: `mistral`).
+
+---
+
+## API
 
 | Method | Path | Description |
-|--------|------|-------------|
-| GET | `/api/units` | List all units |
-| GET | `/api/question?mode=&unit=` | Get a random question |
-| POST | `/api/grade` | Grade a submitted answer |
-| GET | `/api/stats?unit=` | Session statistics |
-| GET | `/api/weak_spots?limit=` | Your weakest terms |
+|---|---|---|
+| `GET` | `/api/units` | List all units |
+| `GET` | `/api/stats?unit=` | Stats by mode (optionally filtered by unit) |
+| `GET` | `/api/weak_spots?limit=` | Lowest-scoring terms |
+| `POST` | `/api/reset` | Delete all progress |
 
-## Grading details
+---
 
-**def_to_term mode**: Simple normalized string comparison. Handles minor typos
-via word-level partial matching for multi-word terms.
+## Grading
 
-**term_to_def mode**: Ollama receives the term, the reference definition, and
-your answer, and returns a score (0–100) + one-sentence feedback. The model is
-prompted to reward conceptual understanding over verbatim wording. Score ≥ 70
-counts as correct.
+**Definition → Term**: normalised string comparison with word-level fuzzy
+matching for multi-word terms. Instant, no model required.
 
-If Ollama is unavailable, a basic keyword-overlap fallback is used.
-
-## Project structure
-
-```
-glossary_trainer/
-├ main.py           # FastAPI backend
-├ glossary.json     # All 300+ terms extracted from the PDF
-├ requirements.txt
-├ progress.db       # Created on first run (SQLite)
-└ static/
-    └ index.html    # Single-file frontend
-```
+**Term → Definition**: Ollama grades the free-text answer (0–100) with
+one-sentence feedback. Score ≥ 70 counts as correct. If Ollama is unavailable,
+a keyword-overlap fallback is used.
