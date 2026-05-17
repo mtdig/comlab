@@ -5,10 +5,18 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>CommLab Glossary Trainer</title>
   <link rel="stylesheet" href="/static/style.css">
+  <script>
+    (function () {
+      var saved = localStorage.getItem('theme');
+      var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      document.documentElement.dataset.theme = saved || (prefersDark ? 'dark' : 'light');
+    })();
+  </script>
   <script src="https://unpkg.com/htmx.org@2.0.4/dist/htmx.min.js"></script>
 </head>
 <body>
 {% block body %}{% endblock %}
+<button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme"></button>
 <script src="/static/main.js"></script>
 </body>
 </html>
