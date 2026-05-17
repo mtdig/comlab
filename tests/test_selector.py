@@ -1,3 +1,4 @@
+from app.schemas import AttemptStats
 from app.selector import _select_from_pool
 
 POOL = [
@@ -9,7 +10,7 @@ POOL = [
 
 def _stats(*terms, score=100.0, expired=0, avg_time=5.0):
     return {
-        (t, 1): {"avg_score": score, "total_expired": expired, "avg_time": avg_time}
+        (t, 1): AttemptStats(avg_score=score, total_expired=expired, avg_time=avg_time)
         for t in terms
     }
 
@@ -34,9 +35,9 @@ def test_phase2_returns_from_pool_when_all_seen():
 
 def test_phase2_low_score_picked_more_often():
     stats = {
-        ("A", 1): {"avg_score": 0.0,   "total_expired": 0, "avg_time": 5.0},
-        ("B", 1): {"avg_score": 100.0, "total_expired": 0, "avg_time": 5.0},
-        ("C", 1): {"avg_score": 100.0, "total_expired": 0, "avg_time": 5.0},
+        ("A", 1): AttemptStats(avg_score=0.0,   total_expired=0, avg_time=5.0),
+        ("B", 1): AttemptStats(avg_score=100.0, total_expired=0, avg_time=5.0),
+        ("C", 1): AttemptStats(avg_score=100.0, total_expired=0, avg_time=5.0),
     }
     counts: dict[str, int] = {"A": 0, "B": 0, "C": 0}
     for _ in range(1000):
@@ -47,9 +48,9 @@ def test_phase2_low_score_picked_more_often():
 
 def test_phase2_many_expireds_increases_weight():
     stats = {
-        ("A", 1): {"avg_score": 100.0, "total_expired": 10, "avg_time": 5.0},
-        ("B", 1): {"avg_score": 100.0, "total_expired": 0,  "avg_time": 5.0},
-        ("C", 1): {"avg_score": 100.0, "total_expired": 0,  "avg_time": 5.0},
+        ("A", 1): AttemptStats(avg_score=100.0, total_expired=10, avg_time=5.0),
+        ("B", 1): AttemptStats(avg_score=100.0, total_expired=0,  avg_time=5.0),
+        ("C", 1): AttemptStats(avg_score=100.0, total_expired=0,  avg_time=5.0),
     }
     counts: dict[str, int] = {"A": 0, "B": 0, "C": 0}
     for _ in range(1000):

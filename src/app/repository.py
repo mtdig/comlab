@@ -1,5 +1,6 @@
 import time
 
+from app.schemas import AttemptStats, ModeStats, WeakSpot
 from app.utils import to_dicts
 
 
@@ -32,7 +33,7 @@ def update_attempt_score(
     )
 
 
-def get_attempt_stats(conn, mode: str) -> dict[tuple[str, int], dict]:
+def get_attempt_stats(conn, mode: str) -> dict[tuple[str, int], AttemptStats]:
     cur = conn.execute(
         """
         SELECT term, unit,
@@ -43,10 +44,17 @@ def get_attempt_stats(conn, mode: str) -> dict[tuple[str, int], dict]:
         """,
         [mode],
     )
-    return {(r["term"], r["unit"]): r for r in to_dicts(cur)}
+    return {
+        (r["term"], r["unit"]): AttemptStats(
+            avg_score=float(r["avg_score"] or 0),
+            total_expired=int(r["total_expired"] or 0),
+            avg_time=float(r["avg_time"] or 0),
+        )
+        for r in to_dicts(cur)
+    }
 
 
-def get_stats_by_mode(conn, unit: int = 0) -> list[dict]:
+def get_stats_by_mode(conn, unit: int = 0) -> list[ModeStats]:
     if unit:
         cur = conn.execute(
             "SELECT mode, COUNT(*) AS total, SUM(correct) AS hits, AVG(score) AS avg_score "
@@ -58,10 +66,18 @@ def get_stats_by_mode(conn, unit: int = 0) -> list[dict]:
             "SELECT mode, COUNT(*) AS total, SUM(correct) AS hits, AVG(score) AS avg_score "
             "FROM attempts GROUP BY mode"
         )
-    return to_dicts(cur)
+    return [
+        ModeStats(
+            mode=r["mode"],
+            total=int(r["total"]),
+            hits=int(r["hits"] or 0),
+            avg_score=float(r["avg_score"] or 0),
+        )
+        for r in to_dicts(cur)
+    ]
 
 
-def get_weak_spots(conn, limit: int = 10) -> list[dict]:
+def get_weak_spots(conn, limit: int = 10) -> list[WeakSpot]:
     cur = conn.execute(
         """
         SELECT term, unit, mode,
@@ -76,7 +92,17 @@ def get_weak_spots(conn, limit: int = 10) -> list[dict]:
         """,
         [limit],
     )
-    return to_dicts(cur)
+    return [
+        WeakSpot(
+            term=r["term"],
+            unit=int(r["unit"]),
+            mode=r["mode"],
+            attempts=int(r["attempts"]),
+            correct_count=int(r["correct_count"] or 0),
+            avg_score=float(r["avg_score"] or 0),
+        )
+        for r in to_dicts(cur)
+    ]
 
 
 def reset_attempts(conn) -> None:
