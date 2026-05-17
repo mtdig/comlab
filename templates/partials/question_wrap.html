@@ -5,7 +5,7 @@
     <div class="timer-display" id="timer-display"></div>
     {% endif %}
     <form id="grade-form"
-      hx-post="/grade"
+      hx-post="{{ root_path }}/grade"
       hx-target="#question-wrap"
       hx-swap="outerHTML">
 
@@ -47,7 +47,7 @@
           Check Answer
         </button>
         <button type="button" class="secondary"
-          hx-get="/question"
+          hx-get="{{ root_path }}/question"
           hx-target="#question-wrap"
           hx-swap="outerHTML"
           hx-vals='{"mode":"{{ mode }}","unit":"{{ unit_filter }}"}'>
@@ -88,7 +88,7 @@
     {% endif %}
     <div class="btn-row" style="margin-top:16px">
       <button id="next-btn" class="primary"
-        hx-get="/question"
+        hx-get="{{ root_path }}/question"
         hx-target="#question-wrap"
         hx-swap="outerHTML"
         hx-vals='{"mode":"{{ mode }}","unit":"{{ unit_filter }}"}'>
@@ -96,7 +96,7 @@
       </button>
       {% if not result.correct and not result.ai_checked and mode == 'def_to_term' %}
       <form id="recheck-form"
-        hx-post="/recheck"
+        hx-post="{{ root_path }}/recheck"
         hx-target="#question-wrap"
         hx-swap="outerHTML"
         style="display:contents">

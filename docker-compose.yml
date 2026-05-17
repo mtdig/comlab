@@ -10,6 +10,8 @@ services:
       # Linux: add --add-host=host.docker.internal:host-gateway to the run command,
       #        or set OLLAMA_HOST to your machine's LAN IP, e.g. http://192.168.1.x:11434
       OLLAMA_HOST: "${OLLAMA_HOST:-http://host.docker.internal:11434}"
+      # Uncomment and set to serve under a sub-path, e.g. ROOT_PATH=/comlab
+      # ROOT_PATH: "${ROOT_PATH:-}"
     volumes:
       # Mount the data directory so the DuckDB file persists across restarts.
       - ./data:/app/data

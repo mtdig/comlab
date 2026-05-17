@@ -8,4 +8,5 @@ def main() -> None:
     if project_root not in sys.path:
         sys.path.insert(0, project_root)
 
-    uvicorn.run("main:app", host="0.0.0.0", port=9999, reload=True)
+    from app.config import ROOT_PATH
+    uvicorn.run("main:app", host="0.0.0.0", port=9999, root_path=ROOT_PATH, reload=True)

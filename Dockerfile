@@ -25,6 +25,8 @@ EXPOSE ${PORT}
 # On Linux pass --add-host=host.docker.internal:host-gateway to docker run,
 # or override with -e OLLAMA_HOST=http://<host-ip>:11434.
 ENV OLLAMA_HOST=http://host.docker.internal:11434
+# Set ROOT_PATH when running behind a reverse proxy at a sub-path, e.g. ROOT_PATH=/comlab
+ENV ROOT_PATH=""
 
 # Mount the data directory to persist the DuckDB file:
 #   docker run -v ./data:/app/data ...

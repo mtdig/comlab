@@ -7,7 +7,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from app.config import STATIC_DIR
+from app.config import ROOT_PATH, STATIC_DIR
 from app.database import init_db
 from app.routers import api, practice, study
 
@@ -18,7 +18,7 @@ async def lifespan(app: FastAPI):
     yield
 
 
-app = FastAPI(title="CommLab Glossary Trainer", lifespan=lifespan)
+app = FastAPI(title="CommLab Glossary Trainer", lifespan=lifespan, root_path=ROOT_PATH)
 
 app.add_middleware(
     CORSMiddleware,

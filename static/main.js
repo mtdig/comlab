@@ -94,14 +94,14 @@ function setAllUnits(section, btn) {
 function reloadSection(section, unitValue) {
   if (section === 'practice') {
     const mode = document.getElementById('mode-hidden').value;
-    htmx.ajax('GET', '/question', {
+    htmx.ajax('GET', (window.__rootPath || '') + '/question', {
       target: '#question-wrap',
       swap: 'outerHTML',
       values: { mode, unit: unitValue },
     });
   } else {
     const order = document.getElementById('study-order-hidden').value;
-    htmx.ajax('GET', '/study/cards', {
+    htmx.ajax('GET', (window.__rootPath || '') + '/study/cards', {
       target: '#study-cards',
       swap: 'innerHTML',
       values: { unit: unitValue, order },
