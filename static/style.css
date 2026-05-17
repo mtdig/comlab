@@ -306,9 +306,35 @@ button.secondary:hover { color: var(--text); border-color: var(--text); }
 
 /* htmx loading state */
 .htmx-indicator { display: none; }
-#grade-form.htmx-request .htmx-indicator { display: inline-block; }
-#grade-form.htmx-request #submit-btn { opacity: .5; pointer-events: none; }
-#grade-form.htmx-request textarea { opacity: .5; pointer-events: none; }
+#grade-form.htmx-request .htmx-indicator    { display: inline-block; }
+#grade-form.htmx-request #submit-btn        { opacity: .5; pointer-events: none; }
+#grade-form.htmx-request textarea           { opacity: .5; pointer-events: none; }
+#recheck-form.htmx-request .htmx-indicator  { display: inline-block; }
+#recheck-form.htmx-request button[type=submit] { opacity: .5; pointer-events: none; }
+
+/* AI recheck decorations */
+.ai-badge {
+  display: inline-block;
+  font-size: .68rem;
+  font-weight: 700;
+  padding: 2px 7px;
+  background: var(--accent);
+  color: #fff;
+  border-radius: 4px;
+  vertical-align: middle;
+  margin-left: 8px;
+  letter-spacing: .04em;
+}
+.ai-recheck-note {
+  font-size: .78rem;
+  color: var(--muted);
+  text-align: center;
+  margin: 6px 0 0;
+}
+.your-answer-box {
+  border: 1px solid var(--border);
+  opacity: .85;
+}
 
 @keyframes spin    { to { transform: rotate(360deg); } }
 @keyframes fadeIn  { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }

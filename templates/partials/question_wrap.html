@@ -56,20 +56,31 @@
   <!-- Result card -->
   <div id="result-card"
     class="result{% if result %} show {{ result.cls }}{% endif %}"
-    {% if result %}data-score="{{ result.score }}" data-correct="{{ result.correct | int }}"{% endif %}>
+    {% if result %}data-score="{{ result.score }}" data-correct="{{ result.correct | int }}"{% endif %}
+    {% if result and result.ai_checked %}data-ai-recheck="1"{% endif %}>
     {% if result %}
     <div class="result-header">
       <span class="result-icon">{{ result.icon }}</span>
       <span class="result-title">{{ result.title }}</span>
+      {% if result.ai_checked %}<span class="ai-badge">AI</span>{% endif %}
     </div>
     <div class="score-bar-wrap">
       <div class="score-bar" data-width="{{ result.score }}%"></div>
     </div>
     <div class="feedback">{{ result.feedback }}</div>
+    {% if not result.correct and mode == 'def_to_term' and result.user_answer %}
+    <div class="reference-box your-answer-box">
+      <div class="reference-label">Your answer</div>
+      <div class="reference-text">{{ result.user_answer }}</div>
+    </div>
+    {% endif %}
     <div class="reference-box">
       <div class="reference-label">Reference answer</div>
       <div class="reference-text">{{ result.reference }}</div>
     </div>
+    {% if result.ai_checked %}
+    <p class="ai-recheck-note">AI recheck · not counted towards stats</p>
+    {% endif %}
     <div class="btn-row" style="margin-top:16px">
       <button id="next-btn" class="primary"
         hx-get="/question"
@@ -78,6 +89,23 @@
         hx-vals='{"mode":"{{ mode }}","unit":"{{ unit_filter }}"}'>
         Next Question →
       </button>
+      {% if not result.correct and not result.ai_checked and mode == 'def_to_term' %}
+      <form id="recheck-form"
+        hx-post="/recheck"
+        hx-target="#question-wrap"
+        hx-swap="outerHTML"
+        style="display:contents">
+        <input type="hidden" name="term"        value="{{ term }}">
+        <input type="hidden" name="unit"        value="{{ unit }}">
+        <input type="hidden" name="mode"        value="{{ mode }}">
+        <input type="hidden" name="unit_filter" value="{{ unit_filter }}">
+        <input type="hidden" name="answer"      value="{{ result.user_answer }}">
+        <button type="submit" class="secondary">
+          <span class="htmx-indicator"><span class="spinner"></span></span>
+          Ask AI →
+        </button>
+      </form>
+      {% endif %}
     </div>
     {% endif %}
   </div><!-- /#result-card -->

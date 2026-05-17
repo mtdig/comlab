@@ -128,12 +128,14 @@ document.body.addEventListener('htmx:afterSettle', () => {
 
   if (hasResult && !resultCard.dataset.counted) {
     resultCard.dataset.counted = '1';
-    const score     = parseInt(resultCard.dataset.score   || '0', 10);
-    const isCorrect = resultCard.dataset.correct === '1';
-    session.total++;
-    if (isCorrect) session.correct++;
-    session.scoreSum += score;
-    updateStats();
+    if (!resultCard.dataset.aiRecheck) {
+      const score     = parseInt(resultCard.dataset.score   || '0', 10);
+      const isCorrect = resultCard.dataset.correct === '1';
+      session.total++;
+      if (isCorrect) session.correct++;
+      session.scoreSum += score;
+      updateStats();
+    }
     // Animate score bar (starts at 0 via CSS, trigger transition after paint)
     const bar = resultCard.querySelector('.score-bar');
     if (bar) {

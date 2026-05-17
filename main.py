@@ -113,6 +113,38 @@ def grade_def_to_term(user_answer: str, correct_term: str) -> tuple[bool, int, s
         return False, score, f"Partially correct – the answer was: {correct_term}"
     return False, 0, f"Incorrect. The correct term was: {correct_term}"
 
+def grade_def_to_term_ollama(user_answer: str, correct_term: str, reference_def: str) -> tuple[bool, int, str]:
+    """Use Ollama to leniently recheck a def→term answer."""
+    prompt = f"""You are checking a vocabulary exercise for IT/English learners.
+
+The student was shown a definition and asked to write the term.
+Definition: "{reference_def}"
+Expected term: "{correct_term}"
+Student's answer: "{user_answer}"
+
+Is the student's answer an acceptable way to refer to the expected term?
+Be lenient with abbreviations, plural forms, and slight alternate phrasings.
+A score of 70+ counts as correct.
+
+Reply ONLY with valid JSON (no other text):
+{{"score": <integer 0-100>, "correct": <true or false>, "feedback": "<one concise sentence>"}}"""
+
+    try:
+        response = ollama.chat(
+            model=OLLAMA_MODEL,
+            messages=[{"role": "user", "content": prompt}],
+            options={"temperature": 0.1},
+        )
+        raw = response["message"]["content"].strip()
+        raw = re.sub(r"^```[a-z]*\n?", "", raw)
+        raw = re.sub(r"\n?```$", "", raw)
+        data = json.loads(raw)
+        score   = max(0, min(100, int(data["score"])))
+        correct = bool(data["correct"]) or score >= 70
+        return correct, score, str(data["feedback"])
+    except Exception as e:
+        return False, 0, f"(Ollama unavailable: {e})"
+
 def grade_term_to_def_ollama(term: str, reference_def: str, user_answer: str) -> tuple[bool, int, str]:
     """Use Ollama to grade a free-text definition answer."""
     prompt = f"""You are grading a vocabulary exercise for English learners studying IT terminology.
@@ -231,6 +263,38 @@ def grade(
         )
 
     result = _build_result(correct, score, feedback, reference)
+    result["user_answer"] = answer
+    result["ai_checked"] = False
+    ctx = {
+        "mode":        mode,
+        "term":        entry["term"],
+        "unit":        entry["unit"],
+        "definition":  entry["definition"],
+        "unit_filter": unit_filter,
+        "answered":    True,
+        "result":      result,
+    }
+    return templates.TemplateResponse(request, "partials/question_wrap.html", ctx)
+
+@app.post("/recheck")
+def recheck(
+    request:     Request,
+    term:        str = Form(...),
+    unit:        str = Form(...),
+    mode:        str = Form(...),
+    unit_filter: str = Form(""),
+    answer:      str = Form(""),
+):
+    unit_int = int(unit)
+    entry = find_entry(term, unit_int)
+    if not entry:
+        raise HTTPException(404, f"Term '{term}' not found in unit {unit_int}")
+
+    correct, score, feedback = grade_def_to_term_ollama(answer, entry["term"], entry["definition"])
+    result = _build_result(correct, score, feedback, entry["term"])
+    result["user_answer"] = answer
+    result["ai_checked"] = True
+
     ctx = {
         "mode":        mode,
         "term":        entry["term"],
