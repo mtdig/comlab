@@ -3,7 +3,7 @@
 
 <header>
   <h1>CommLab Glossary Trainer</h1>
-  <p>12 units · 300+ terms · AI-powered grading via Ollama</p>
+  <p>12 units · 440+ terms · AI-powered grading via Ollama</p>
 </header>
 
 <!-- Section tabs -->
@@ -121,6 +121,17 @@
       </button>
     </div>
 
+    <div class="pill-group">
+      <button class="pill active" id="study-grid-btn"
+        onclick="setStudyView('grid')">
+        Grid
+      </button>
+      <button class="pill" id="study-single-btn"
+        onclick="setStudyView('single')">
+        Single
+      </button>
+    </div>
+
     <input type="hidden" id="study-unit-hidden" name="unit" value="">
     <div class="unit-pills" id="study-unit-pills">
       <button type="button" class="pill active" data-all
@@ -141,6 +152,13 @@
 
   <!-- Term count -->
   <div class="study-count"><span id="study-count"></span></div>
+
+  <!-- Single-card navigation (shown only in single view) -->
+  <div id="study-single-nav" class="study-single-nav" style="display:none">
+    <button class="pill" id="study-nav-prev" onclick="studyNavStep(-1)" disabled>← Prev</button>
+    <span id="study-nav-index">1 / 0</span>
+    <button class="pill" id="study-nav-next" onclick="studyNavStep(1)">Next →</button>
+  </div>
 
   <!-- Cards (loaded via htmx when tab is clicked) -->
   <div id="study-cards"></div>

@@ -442,6 +442,24 @@ button.secondary:hover { color: var(--text); border-color: var(--text); }
   text-align: right;
 }
 
+.study-single-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  width: 100%;
+  max-width: 700px;
+  margin-bottom: 14px;
+}
+
+#study-nav-index {
+  font-size: .9rem;
+  color: var(--muted);
+  min-width: 64px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
 .study-card {
   background: var(--surface);
   border: 1px solid var(--border);
@@ -478,7 +496,7 @@ button.secondary:hover { color: var(--text); border-color: var(--text); }
 }
 
 .study-def {
-  font-size: .9rem;
+  font-size: 1.1rem;
   color: var(--muted);
   border-top: 1px solid var(--border);
 }

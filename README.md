@@ -84,7 +84,7 @@ services:
   comlab:
     image: mtdig/comlab:latest
     ports:
-      - "8000:8000"
+      - "9999:9999"
     environment:
       OLLAMA_HOST: "http://host.docker.internal:11434"
     volumes:
@@ -102,7 +102,7 @@ services:
 docker compose up -d
 ```
 
-Open **http://localhost:8000**.
+Open **http://localhost:9999**.
 
 To stop: `docker compose down`  
 To update to a newer image: `docker compose pull && docker compose up -d`
@@ -160,7 +160,7 @@ To change the model, edit `OLLAMA_MODEL` in `src/app/config.py`.
 
 | Variable | Default | Description |
 |---|---|---|
-| `PORT` | `8000` | HTTP port the server listens on |
+| `PORT` | `9999` | HTTP port the server listens on |
 | `OLLAMA_HOST` | `http://host.docker.internal:11434` | Ollama API base URL |
 
 `OLLAMA_MODEL` is set in `src/app/config.py` (default: `mistral`).

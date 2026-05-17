@@ -48,7 +48,9 @@ function setMode(mode) {
 }
 
 //  Study controls 
-let studyReveal = 'hide-def';
+let studyReveal     = 'hide-def';
+let studyView       = 'grid';
+let studySingleIndex = 0;
 
 function setStudyOrder(order) {
   document.getElementById('study-order-hidden').value = order;
@@ -95,6 +97,13 @@ function reloadSection(section, unitValue) {
       target: '#study-cards',
       swap: 'innerHTML',
       values: { unit: unitValue, order },
+    }).then(() => {
+      document.querySelectorAll('#study-cards .study-def')
+        .forEach(el => el.classList.toggle('blurred', studyReveal === 'hide-def'));
+      document.querySelectorAll('#study-cards .study-term')
+        .forEach(el => el.classList.toggle('blurred', studyReveal === 'hide-term'));
+      studySingleIndex = 0;
+      applyStudyView();
     });
   }
 }
@@ -107,6 +116,38 @@ function setStudyReveal(mode) {
     .forEach(el => el.classList.toggle('blurred', mode === 'hide-term'));
   document.querySelectorAll('#study-cards .study-def')
     .forEach(el => el.classList.toggle('blurred', mode === 'hide-def'));
+}
+
+function setStudyView(view) {
+  studyView = view;
+  document.getElementById('study-grid-btn').classList.toggle('active', view === 'grid');
+  document.getElementById('study-single-btn').classList.toggle('active', view === 'single');
+  studySingleIndex = 0;
+  applyStudyView();
+}
+
+function applyStudyView() {
+  const cards = Array.from(document.querySelectorAll('#study-cards .study-card'));
+  const nav   = document.getElementById('study-single-nav');
+  if (!nav) return;
+  if (studyView === 'single' && cards.length > 0) {
+    if (studySingleIndex >= cards.length) studySingleIndex = cards.length - 1;
+    cards.forEach((c, i) => { c.style.display = i === studySingleIndex ? '' : 'none'; });
+    nav.style.display = '';
+    document.getElementById('study-nav-index').textContent =
+      `${studySingleIndex + 1} / ${cards.length}`;
+    document.getElementById('study-nav-prev').disabled = studySingleIndex === 0;
+    document.getElementById('study-nav-next').disabled = studySingleIndex >= cards.length - 1;
+  } else {
+    cards.forEach(c => { c.style.display = ''; });
+    nav.style.display = 'none';
+  }
+}
+
+function studyNavStep(delta) {
+  const cards = document.querySelectorAll('#study-cards .study-card');
+  studySingleIndex = Math.max(0, Math.min(studySingleIndex + delta, cards.length - 1));
+  applyStudyView();
 }
 
 function revealAll() {
@@ -248,11 +289,29 @@ document.body.addEventListener('htmx:afterSettle', () => {
         .forEach(el => el.classList.toggle('blurred', studyReveal === 'hide-def'));
       document.querySelectorAll('#study-cards .study-term')
         .forEach(el => el.classList.toggle('blurred', studyReveal === 'hide-term'));
+      studySingleIndex = 0;
+      applyStudyView();
     } else {
       startTimer();
       updateCoverage();
       document.getElementById('answer-input')?.focus();
     }
+  }
+});
+
+//  Arrow key navigation in single-card study view
+document.addEventListener('keydown', e => {
+  if (studyView !== 'single') return;
+  if (document.getElementById('study-section')?.style.display === 'none') return;
+  if (e.key === 'ArrowLeft')  { e.preventDefault(); studyNavStep(-1); }
+  if (e.key === 'ArrowRight') { e.preventDefault(); studyNavStep(1); }
+  if (e.key === ' ') {
+    e.preventDefault();
+    const cards = document.querySelectorAll('#study-cards .study-card');
+    const card  = cards[studySingleIndex];
+    if (!card) return;
+    const sel = studyReveal === 'hide-def' ? '.study-def' : '.study-term';
+    card.querySelector(sel)?.classList.toggle('blurred');
   }
 });
 

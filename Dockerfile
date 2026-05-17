@@ -17,7 +17,7 @@ COPY templates/ templates/
 # Install the project package itself
 RUN uv sync --frozen --no-dev
 
-ENV PORT=8000
+ENV PORT=9999
 
 EXPOSE ${PORT}
 
