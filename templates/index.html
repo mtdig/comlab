@@ -1,0 +1,137 @@
+{% extends "base.html" %}
+{% block body %}
+
+<header>
+  <h1>CommLab Glossary Trainer</h1>
+  <p>12 units · 300+ terms · AI-powered grading via Ollama</p>
+</header>
+
+<!-- Section tabs -->
+<div class="section-tabs">
+  <button class="pill active" id="tab-practice" onclick="switchSection('practice')">Practice</button>
+  <button class="pill" id="tab-study" onclick="switchSection('study')">Study</button>
+</div>
+
+<!-- ── Practice section ─────────────────────────────────────────────────── -->
+<div id="practice-section">
+
+  <!-- Session stats -->
+  <div class="stats-strip">
+    <div class="stat">
+      <div class="stat-value accent" id="stat-total">0</div>
+      <div class="stat-label">Questions</div>
+    </div>
+    <div class="stat">
+      <div class="stat-value green" id="stat-correct">0</div>
+      <div class="stat-label">Correct</div>
+    </div>
+    <div class="stat">
+      <div class="stat-value yellow" id="stat-score">—</div>
+      <div class="stat-label">Avg. Score</div>
+    </div>
+  </div>
+
+  <!-- Hidden mode input (drives htmx requests) -->
+  <input type="hidden" id="mode-hidden" name="mode" value="def_to_term">
+
+  <!-- Controls: mode pills + unit selector -->
+  <div class="controls">
+    <div class="pill-group" id="mode-group">
+      <button class="pill active" data-mode="def_to_term"
+        hx-get="/question"
+        hx-target="#question-wrap"
+        hx-swap="outerHTML"
+        hx-vals='{"mode":"def_to_term"}'
+        hx-include="#unit-hidden"
+        onclick="setMode('def_to_term')">
+        Definition → Term
+      </button>
+      <button class="pill" data-mode="term_to_def"
+        hx-get="/question"
+        hx-target="#question-wrap"
+        hx-swap="outerHTML"
+        hx-vals='{"mode":"term_to_def"}'
+        hx-include="#unit-hidden"
+        onclick="setMode('term_to_def')">
+        Term → Definition
+      </button>
+    </div>
+    <input type="hidden" id="unit-hidden" name="unit" value="">
+    <div class="unit-pills" id="practice-unit-pills">
+      <button type="button" class="pill active" data-all
+        onclick="setAllUnits('practice', this)">All</button>
+      {% for u in units %}
+      <button type="button" class="pill" data-unit="{{ u.unit }}"
+        title="Unit {{ u.unit }}: {{ u.unit_name }}"
+        onclick="toggleUnit('practice', {{ u.unit }}, this)">{{ u.unit }}</button>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- Ollama note (shown for term→def mode) -->
+  <div class="ollama-note" id="ollama-note" style="display:none">
+    <strong>AI grading active.</strong> Your answer is evaluated by Ollama (mistral).
+    Ollama must be running locally.
+  </div>
+
+  <!-- Question + result (server-rendered via Jinja2 include initially) -->
+  {% include "partials/question_wrap.html" %}
+
+</div><!-- /practice-section -->
+
+<!-- ── Study section ────────────────────────────────────────────────────── -->
+<div id="study-section" style="display:none">
+
+  <input type="hidden" id="study-order-hidden" name="order" value="grouped">
+
+  <!-- Controls -->
+  <div class="study-controls">
+    <div class="pill-group">
+      <button class="pill active" id="study-group-btn"
+        onclick="setStudyOrder('grouped')">
+        Grouped
+      </button>
+      <button class="pill" id="study-mix-btn"
+        onclick="setStudyOrder('mixed')">
+        Mixed
+      </button>
+    </div>
+
+    <div class="pill-group">
+      <button class="pill active" id="study-hide-def-btn"
+        onclick="setStudyReveal('hide-def')">
+        Term → Def
+      </button>
+      <button class="pill" id="study-hide-term-btn"
+        onclick="setStudyReveal('hide-term')">
+        Def → Term
+      </button>
+    </div>
+
+    <input type="hidden" id="study-unit-hidden" name="unit" value="">
+    <div class="unit-pills" id="study-unit-pills">
+      <button type="button" class="pill active" data-all
+        onclick="setAllUnits('study', this)">All</button>
+      {% for u in units %}
+      <button type="button" class="pill" data-unit="{{ u.unit }}"
+        title="Unit {{ u.unit }}: {{ u.unit_name }}"
+        onclick="toggleUnit('study', {{ u.unit }}, this)">{{ u.unit }}</button>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- Actions -->
+  <div class="study-actions">
+    <button class="secondary" onclick="revealAll()">Reveal all</button>
+    <button class="secondary" onclick="hideAll()">Hide all</button>
+  </div>
+
+  <!-- Term count -->
+  <div class="study-count"><span id="study-count"></span></div>
+
+  <!-- Cards (loaded via htmx when tab is clicked) -->
+  <div id="study-cards"></div>
+
+</div><!-- /study-section -->
+
+{% endblock %}

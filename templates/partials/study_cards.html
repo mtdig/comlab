@@ -1,0 +1,8 @@
+<span id="study-count" hx-swap-oob="innerHTML">{{ terms | length }} terms</span>
+{% for entry in terms %}
+<div class="study-card">
+  <div class="study-card-header">Unit {{ entry.unit }} · {{ entry.unit_name }}</div>
+  <div class="study-field study-term" onclick="this.classList.toggle('blurred')">{{ entry.term }}</div>
+  <div class="study-field study-def blurred" onclick="this.classList.toggle('blurred')">{{ entry.definition }}</div>
+</div>
+{% endfor %}

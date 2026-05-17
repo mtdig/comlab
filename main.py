@@ -1,60 +1,76 @@
 """
 CommLab Glossary Trainer – FastAPI backend
-Requires: pip install fastapi uvicorn ollama
 """
 
 import json
 import random
 import re
-import sqlite3
 import time
 import uvicorn
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, contextmanager
 from pathlib import Path
 
+import duckdb
 import ollama
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, Form, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
+from fastapi.templating import Jinja2Templates
 
 # ─── Config ──────────────────────────────────────────────────────────────────
 
 GLOSSARY_PATH = Path(__file__).parent / "glossary.json"
-DB_PATH       = Path(__file__).parent / "progress.db"
+DB_PATH       = Path(__file__).parent / "progress.duckdb"
 STATIC_DIR    = Path(__file__).parent / "static"
-OLLAMA_MODEL  = "mistral"   # change to phi3:mini, llama3.2:3b, etc.
+TEMPLATES_DIR = Path(__file__).parent / "templates"
+OLLAMA_MODEL  = "mistral"
+
+templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 
 # ─── DB setup ────────────────────────────────────────────────────────────────
 
+@contextmanager
 def get_db():
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    return conn
+    conn = duckdb.connect(str(DB_PATH))
+    try:
+        yield conn
+    finally:
+        conn.close()
+
+def to_dicts(cur) -> list[dict]:
+    cols = [d[0] for d in cur.description]
+    return [dict(zip(cols, row)) for row in cur.fetchall()]
 
 def init_db():
     with get_db() as conn:
         conn.execute("""
             CREATE TABLE IF NOT EXISTS attempts (
-                id        INTEGER PRIMARY KEY AUTOINCREMENT,
-                term      TEXT    NOT NULL,
-                unit      INTEGER NOT NULL,
-                mode      TEXT    NOT NULL,   -- 'term_to_def' or 'def_to_term'
-                score     INTEGER NOT NULL,   -- 0-100
-                correct   INTEGER NOT NULL,   -- 1/0
-                ts        INTEGER NOT NULL
+                term    TEXT    NOT NULL,
+                unit    INTEGER NOT NULL,
+                mode    TEXT    NOT NULL,
+                score   INTEGER NOT NULL,
+                correct INTEGER NOT NULL,
+                ts      BIGINT  NOT NULL
             )
         """)
-        conn.commit()
 
 # ─── Load glossary ───────────────────────────────────────────────────────────
 
-def load_glossary():
+def load_glossary() -> list[dict]:
     with open(GLOSSARY_PATH) as f:
         return json.load(f)
 
-GLOSSARY = load_glossary()
+GLOSSARY: list[dict] = load_glossary()
+
+def _build_units() -> list[dict]:
+    seen: dict[int, str] = {}
+    for e in GLOSSARY:
+        u = e["unit"]
+        if u not in seen:
+            seen[u] = e["unit_name"]
+    return [{"unit": u, "unit_name": n} for u, n in sorted(seen.items())]
+
+UNITS: list[dict] = _build_units()
 
 # ─── Lifespan ────────────────────────────────────────────────────────────────
 
@@ -72,21 +88,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ─── Models ──────────────────────────────────────────────────────────────────
-
-class GradeRequest(BaseModel):
-    term: str
-    unit: int
-    mode: str           # 'term_to_def' | 'def_to_term'
-    user_answer: str
-
-class GradeResponse(BaseModel):
-    correct: bool
-    score: int          # 0-100
-    feedback: str
-    reference: str      # the correct answer for display
-
-# ─── Helpers ─────────────────────────────────────────────────────────────────
+# ─── Grading helpers ─────────────────────────────────────────────────────────
 
 def normalize(s: str) -> str:
     return re.sub(r"[^a-z0-9]", "", s.lower())
@@ -98,12 +100,10 @@ def find_entry(term: str, unit: int) -> dict | None:
     return None
 
 def grade_def_to_term(user_answer: str, correct_term: str) -> tuple[bool, int, str]:
-    """Simple fuzzy match for mode def_to_term (definition given, guess the word)."""
     user_norm    = normalize(user_answer.strip())
     correct_norm = normalize(correct_term)
     if user_norm == correct_norm:
         return True, 100, "Perfect match!"
-    # Allow partial credit for long compound terms
     words = [normalize(w) for w in correct_term.split()]
     matched = sum(1 for w in words if w in user_norm)
     if matched == len(words):
@@ -135,16 +135,14 @@ Reply ONLY with valid JSON in this exact format (no other text):
             options={"temperature": 0.1},
         )
         raw = response["message"]["content"].strip()
-        # Strip markdown code fences if present
         raw = re.sub(r"^```[a-z]*\n?", "", raw)
         raw = re.sub(r"\n?```$", "", raw)
         data = json.loads(raw)
-        score   = max(0, min(100, int(data["score"])))
-        correct = bool(data["correct"]) or score >= 70
+        score    = max(0, min(100, int(data["score"])))
+        correct  = bool(data["correct"]) or score >= 70
         feedback = str(data["feedback"])
         return correct, score, feedback
     except Exception as e:
-        # Fallback: basic keyword check
         keywords = [w.lower() for w in reference_def.split() if len(w) > 4]
         matched  = sum(1 for k in keywords if k in user_answer.lower())
         ratio    = matched / max(len(keywords), 1)
@@ -152,114 +150,148 @@ Reply ONLY with valid JSON in this exact format (no other text):
         correct  = score >= 55
         return correct, score, f"(Ollama unavailable: {e}) Basic keyword match: {score}/100"
 
+def _build_result(correct: bool, score: int, feedback: str, reference: str) -> dict:
+    if correct:
+        cls, icon, title = "correct", "✅", "Correct!"
+    elif score >= 50:
+        cls, icon, title = "partial", "🟡", "Partial credit"
+    else:
+        cls, icon, title = "wrong", "❌", "Incorrect"
+    return {
+        "cls": cls, "icon": icon, "title": title,
+        "score": score, "correct": correct,
+        "feedback": feedback, "reference": reference,
+    }
+
+def _pick_question(mode: str, unit_filter: str) -> dict:
+    units = [int(u) for u in unit_filter.split(',') if u.strip()]
+    pool = [e for e in GLOSSARY if e["unit"] in units] if units else GLOSSARY
+    if not pool:
+        raise HTTPException(404, "No entries for that unit")
+    return random.choice(pool)
+
 # ─── Routes ──────────────────────────────────────────────────────────────────
 
 @app.get("/")
-def root():
-    return FileResponse(STATIC_DIR / "index.html")
+def index(request: Request):
+    entry = _pick_question("def_to_term", "")
+    ctx = {
+        "units":       UNITS,
+        "mode":        "def_to_term",
+        "term":        entry["term"],
+        "unit":        entry["unit"],
+        "definition":  entry["definition"],
+        "unit_filter": "",
+        "answered":    False,
+        "result":      None,
+    }
+    return templates.TemplateResponse(request, "index.html", ctx)
 
-@app.get("/api/units")
-def get_units():
-    seen = {}
-    for e in GLOSSARY:
-        u = e["unit"]
-        if u not in seen:
-            seen[u] = e["unit_name"]
-    return [{"unit": u, "name": n} for u, n in sorted(seen.items())]
+@app.get("/question")
+def question(request: Request, mode: str = "def_to_term", unit: str = ""):
+    entry = _pick_question(mode, unit)
+    ctx = {
+        "mode":        mode,
+        "term":        entry["term"],
+        "unit":        entry["unit"],
+        "definition":  entry["definition"],
+        "unit_filter": unit,
+        "answered":    False,
+        "result":      None,
+    }
+    return templates.TemplateResponse(request, "partials/question_wrap.html", ctx)
 
-@app.get("/api/glossary")
-def get_glossary(unit: int = 0):
-    pool = GLOSSARY if unit == 0 else [e for e in GLOSSARY if e["unit"] == unit]
-    return pool
-
-@app.get("/api/question")
-def get_question(mode: str = "def_to_term", unit: int = 0):
-    """
-    mode: 'def_to_term' – show definition, student types the term
-          'term_to_def' – show term, student types a definition
-    unit: 0 = all units
-    """
-    pool = GLOSSARY if unit == 0 else [e for e in GLOSSARY if e["unit"] == unit]
-    if not pool:
-        raise HTTPException(404, "No entries for that unit")
-    entry = random.choice(pool)
-    if mode == "def_to_term":
-        return {
-            "mode": mode,
-            "unit": entry["unit"],
-            "unit_name": entry["unit_name"],
-            "term": entry["term"],
-            "prompt": entry["definition"],
-            "hint": f"Unit {entry['unit']}: {entry['unit_name']}",
-        }
-    else:  # term_to_def
-        return {
-            "mode": mode,
-            "unit": entry["unit"],
-            "unit_name": entry["unit_name"],
-            "term": entry["term"],
-            "prompt": entry["term"],
-            "hint": f"Unit {entry['unit']}: {entry['unit_name']}",
-        }
-
-@app.post("/api/grade", response_model=GradeResponse)
-def grade_answer(req: GradeRequest):
-    entry = find_entry(req.term, req.unit)
+@app.post("/grade")
+def grade(
+    request:     Request,
+    term:        str = Form(...),
+    unit:        str = Form(...),
+    mode:        str = Form(...),
+    unit_filter: str = Form(""),
+    answer:      str = Form(""),
+):
+    unit_int = int(unit)
+    entry = find_entry(term, unit_int)
     if not entry:
-        raise HTTPException(404, f"Term '{req.term}' not found in unit {req.unit}")
+        raise HTTPException(404, f"Term '{term}' not found in unit {unit_int}")
 
-    if req.mode == "def_to_term":
-        correct, score, feedback = grade_def_to_term(req.user_answer, entry["term"])
+    if mode == "def_to_term":
+        correct, score, feedback = grade_def_to_term(answer, entry["term"])
         reference = entry["term"]
     else:
         correct, score, feedback = grade_term_to_def_ollama(
-            entry["term"], entry["definition"], req.user_answer
+            entry["term"], entry["definition"], answer
         )
         reference = entry["definition"]
 
-    # Log to DB
     with get_db() as conn:
         conn.execute(
-            "INSERT INTO attempts (term, unit, mode, score, correct, ts) VALUES (?,?,?,?,?,?)",
-            (entry["term"], entry["unit"], req.mode, score, int(correct), int(time.time()))
+            "INSERT INTO attempts (term, unit, mode, score, correct, ts) VALUES (?, ?, ?, ?, ?, ?)",
+            [entry["term"], entry["unit"], mode, score, int(correct), int(time.time())]
         )
-        conn.commit()
 
-    return GradeResponse(correct=correct, score=score, feedback=feedback, reference=reference)
+    result = _build_result(correct, score, feedback, reference)
+    ctx = {
+        "mode":        mode,
+        "term":        entry["term"],
+        "unit":        entry["unit"],
+        "definition":  entry["definition"],
+        "unit_filter": unit_filter,
+        "answered":    True,
+        "result":      result,
+    }
+    return templates.TemplateResponse(request, "partials/question_wrap.html", ctx)
+
+@app.get("/study/cards")
+def study_cards(request: Request, unit: str = "", order: str = "grouped"):
+    units = [int(u) for u in unit.split(',') if u.strip()]
+    pool = [e for e in GLOSSARY if e["unit"] in units] if units else GLOSSARY
+    terms = list(pool)
+    if order == "mixed":
+        random.shuffle(terms)
+    return templates.TemplateResponse(request, "partials/study_cards.html", {
+        "terms": terms,
+    })
+
+# ─── JSON API routes ──────────────────────────────────────────────────────────
+
+@app.get("/api/units")
+def api_units():
+    return UNITS
 
 @app.get("/api/stats")
-def get_stats(unit: int = 0):
+def api_stats(unit: int = 0):
     with get_db() as conn:
         if unit == 0:
-            rows = conn.execute(
-                "SELECT mode, COUNT(*) as total, SUM(correct) as hits, AVG(score) as avg_score FROM attempts GROUP BY mode"
-            ).fetchall()
+            cur = conn.execute(
+                "SELECT mode, COUNT(*) AS total, SUM(correct) AS hits, AVG(score) AS avg_score "
+                "FROM attempts GROUP BY mode"
+            )
         else:
-            rows = conn.execute(
-                "SELECT mode, COUNT(*) as total, SUM(correct) as hits, AVG(score) as avg_score FROM attempts WHERE unit=? GROUP BY mode",
-                (unit,)
-            ).fetchall()
-        return [dict(r) for r in rows]
+            cur = conn.execute(
+                "SELECT mode, COUNT(*) AS total, SUM(correct) AS hits, AVG(score) AS avg_score "
+                "FROM attempts WHERE unit=? GROUP BY mode",
+                [unit]
+            )
+        return to_dicts(cur)
 
 @app.get("/api/weak_spots")
-def get_weak_spots(limit: int = 10):
-    """Return the terms the student gets wrong most often."""
+def api_weak_spots(limit: int = 10):
     with get_db() as conn:
-        rows = conn.execute("""
+        cur = conn.execute("""
             SELECT term, unit, mode,
-                   COUNT(*) as attempts,
-                   SUM(correct) as correct_count,
-                   AVG(score) as avg_score
+                   COUNT(*) AS attempts,
+                   SUM(correct) AS correct_count,
+                   AVG(score) AS avg_score
             FROM attempts
             GROUP BY term, unit, mode
-            HAVING attempts >= 2
+            HAVING COUNT(*) >= 2
             ORDER BY avg_score ASC
             LIMIT ?
-        """, (limit,)).fetchall()
-    return [dict(r) for r in rows]
+        """, [limit])
+        return to_dicts(cur)
 
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
-
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

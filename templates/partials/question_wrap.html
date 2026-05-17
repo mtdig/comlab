@@ -1,0 +1,85 @@
+<div id="question-wrap" data-mode="{{ mode }}">
+
+  <div class="card">
+    <form id="grade-form"
+      hx-post="/grade"
+      hx-target="#question-wrap"
+      hx-swap="outerHTML">
+
+      <!-- Hidden fields -->
+      <input type="hidden" name="term"        value="{{ term }}">
+      <input type="hidden" name="unit"        value="{{ unit }}">
+      <input type="hidden" name="mode"        value="{{ mode }}">
+      <input type="hidden" name="unit_filter" value="{{ unit_filter }}">
+
+      <!-- Mode label -->
+      <div class="mode-label">
+        {% if mode == 'def_to_term' %}Definition → Term{% else %}Term → Definition{% endif %}
+      </div>
+
+      <!-- Unit badge -->
+      <div class="unit-badge">Unit {{ unit }}</div>
+
+      <!-- Prompt -->
+      {% if mode == 'def_to_term' %}
+      <div class="prompt">{{ definition }}</div>
+      {% else %}
+      <div class="prompt is-term">{{ term }}</div>
+      {% endif %}
+
+      <!-- Answer input -->
+      <textarea id="answer-input"
+        name="answer"
+        placeholder="{% if mode == 'def_to_term' %}Type the term…{% else %}Type the definition…{% endif %}"
+        {% if answered %}disabled{% endif %}
+        autofocus></textarea>
+
+      <!-- Buttons -->
+      <div class="btn-row">
+        <button type="submit" class="primary" id="submit-btn"
+          {% if answered %}disabled{% endif %}>
+          <span class="htmx-indicator"><span class="spinner"></span></span>
+          Check Answer
+        </button>
+        <button type="button" class="secondary"
+          hx-get="/question"
+          hx-target="#question-wrap"
+          hx-swap="outerHTML"
+          hx-vals='{"mode":"{{ mode }}","unit":"{{ unit_filter }}"}'>
+          Skip
+        </button>
+      </div>
+
+    </form>
+  </div><!-- /.card -->
+
+  <!-- Result card -->
+  <div id="result-card"
+    class="result{% if result %} show {{ result.cls }}{% endif %}"
+    {% if result %}data-score="{{ result.score }}" data-correct="{{ result.correct | int }}"{% endif %}>
+    {% if result %}
+    <div class="result-header">
+      <span class="result-icon">{{ result.icon }}</span>
+      <span class="result-title">{{ result.title }}</span>
+    </div>
+    <div class="score-bar-wrap">
+      <div class="score-bar" data-width="{{ result.score }}%"></div>
+    </div>
+    <div class="feedback">{{ result.feedback }}</div>
+    <div class="reference-box">
+      <div class="reference-label">Reference answer</div>
+      <div class="reference-text">{{ result.reference }}</div>
+    </div>
+    <div class="btn-row" style="margin-top:16px">
+      <button id="next-btn" class="primary"
+        hx-get="/question"
+        hx-target="#question-wrap"
+        hx-swap="outerHTML"
+        hx-vals='{"mode":"{{ mode }}","unit":"{{ unit_filter }}"}'>
+        Next Question →
+      </button>
+    </div>
+    {% endif %}
+  </div><!-- /#result-card -->
+
+</div><!-- /#question-wrap -->
