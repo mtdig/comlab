@@ -54,8 +54,9 @@ let studySingleIndex = 0;
 
 function setStudyOrder(order) {
   document.getElementById('study-order-hidden').value = order;
-  document.getElementById('study-group-btn').classList.toggle('active', order === 'grouped');
-  document.getElementById('study-mix-btn').classList.toggle('active',   order === 'mixed');
+  document.getElementById('study-group-btn').classList.toggle('active',   order === 'grouped');
+  document.getElementById('study-mix-btn').classList.toggle('active',    order === 'mixed');
+  document.getElementById('study-shuffle-btn').classList.toggle('active', order === 'shuffle');
   reloadSection('study', document.getElementById('study-unit-hidden').value);
 }
 

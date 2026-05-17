@@ -11,7 +11,7 @@ router = APIRouter()
 @router.get("/study/cards")
 def study_cards(request: Request, unit: str = "", order: str = "grouped"):
     terms = filter_pool(GLOSSARY, unit)
-    if order == "mixed":
+    if order in ("mixed", "shuffle"):
         terms = list(terms)
         random.shuffle(terms)
     return templates.TemplateResponse(request, "partials/study_cards.html", {"terms": terms})

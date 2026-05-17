@@ -2,6 +2,8 @@
 
 Vocabulary practice app for the CommLab English glossary — 12 units, 444 terms.
 
+![demo](media/comlab.webp)
+
 ## Features
 
 - **Definition → Term**: given the definition, type the correct term  
