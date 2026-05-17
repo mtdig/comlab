@@ -17,7 +17,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-# ─── Config ──────────────────────────────────────────────────────────────────
+#  Config 
 
 GLOSSARY_PATH = Path(__file__).parent / "glossary.json"
 DB_PATH       = Path(__file__).parent / "progress.duckdb"
@@ -27,7 +27,7 @@ OLLAMA_MODEL  = "mistral"
 
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 
-# ─── DB setup ────────────────────────────────────────────────────────────────
+#  DB setup 
 
 @contextmanager
 def get_db():
@@ -54,7 +54,7 @@ def init_db():
             )
         """)
 
-# ─── Load glossary ───────────────────────────────────────────────────────────
+#  Load glossary 
 
 def load_glossary() -> list[dict]:
     with open(GLOSSARY_PATH) as f:
@@ -72,7 +72,7 @@ def _build_units() -> list[dict]:
 
 UNITS: list[dict] = _build_units()
 
-# ─── Lifespan ────────────────────────────────────────────────────────────────
+#  Lifespan 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -88,7 +88,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ─── Grading helpers ─────────────────────────────────────────────────────────
+#  Grading helpers 
 
 def normalize(s: str) -> str:
     return re.sub(r"[^a-z0-9]", "", s.lower())
@@ -202,7 +202,7 @@ def _pick_question(mode: str, unit_filter: str) -> dict:
         raise HTTPException(404, "No entries for that unit")
     return random.choice(pool)
 
-# ─── Routes ──────────────────────────────────────────────────────────────────
+#  Routes 
 
 @app.get("/")
 def index(request: Request):
@@ -317,7 +317,7 @@ def study_cards(request: Request, unit: str = "", order: str = "grouped"):
         "terms": terms,
     })
 
-# ─── JSON API routes ──────────────────────────────────────────────────────────
+#  JSON API routes 
 
 @app.get("/api/units")
 def api_units():

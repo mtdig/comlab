@@ -314,7 +314,7 @@
   }
   .ollama-note strong { color: var(--accent); }
 
-  /* ── Section tabs ── */
+  /*  Section tabs  */
   .section-tabs {
     display: flex;
     background: var(--surface);
@@ -325,7 +325,7 @@
     margin-bottom: 28px;
   }
 
-  /* ── Study section ── */
+  /*  Study section  */
   .study-controls {
     display: flex;
     flex-wrap: wrap;
@@ -511,7 +511,7 @@
   // Session stats
   let session = { total: 0, correct: 0, scoreSum: 0 };
 
-  // ── Init ──────────────────────────────────────────────────────────────────
+  //  Init 
 
   async function init() {
     await loadUnits();
@@ -534,7 +534,7 @@
     });
   }
 
-  // ── Controls ──────────────────────────────────────────────────────────────
+  //  Controls 
 
   document.querySelectorAll('#mode-group .pill').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -562,7 +562,7 @@
     }
   });
 
-  // ── Load question ─────────────────────────────────────────────────────────
+  //  Load question 
 
   async function loadQuestion() {
     hideResult();
@@ -603,7 +603,7 @@
     }
   }
 
-  // ── Submit ────────────────────────────────────────────────────────────────
+  //  Submit 
 
   async function submitAnswer() {
     const input = document.getElementById('answer-input');
@@ -643,7 +643,7 @@
     }
   }
 
-  // ── Result display ────────────────────────────────────────────────────────
+  //  Result display 
 
   function showResult(data) {
     const card   = document.getElementById('result-card');
@@ -687,7 +687,7 @@
     card.className = 'result';
   }
 
-  // ── Stats ─────────────────────────────────────────────────────────────────
+  //  Stats 
 
   function updateStats() {
     document.getElementById('stat-total').textContent = session.total;
@@ -696,7 +696,7 @@
     document.getElementById('stat-score').textContent = avg === '—' ? avg : avg + '%';
   }
 
-  // ── Section switching ──────────────────────────────────────────────────────
+  //  Section switching 
 
   function switchSection(section) {
     const isPractice = section === 'practice';
@@ -707,7 +707,7 @@
     if (!isPractice) loadStudyCards();
   }
 
-  // ── Study ─────────────────────────────────────────────────────────────────
+  //  Study 
 
   let studyOrder  = 'grouped';
   let studyReveal = 'hide-def'; // 'hide-def' = term visible, def blurred | 'hide-term' = def visible, term blurred
@@ -773,7 +773,7 @@
     return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   }
 
-  // ── Boot ──────────────────────────────────────────────────────────────────
+  //  Boot 
 
   init();
 </script>

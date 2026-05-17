@@ -392,7 +392,7 @@
   // Session stats
   let session = { total: 0, correct: 0, scoreSum: 0 };
 
-  // ── Init ──────────────────────────────────────────────────────────────────
+  //  Init 
 
   async function init() {
     await loadUnits();
@@ -411,7 +411,7 @@
     });
   }
 
-  // ── Controls ──────────────────────────────────────────────────────────────
+  //  Controls 
 
   document.querySelectorAll('.pill').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -436,7 +436,7 @@
     }
   });
 
-  // ── Load question ─────────────────────────────────────────────────────────
+  //  Load question 
 
   async function loadQuestion() {
     hideResult();
@@ -475,7 +475,7 @@
     }
   }
 
-  // ── Submit ────────────────────────────────────────────────────────────────
+  //  Submit 
 
   async function submitAnswer() {
     const input = document.getElementById('answer-input');
@@ -515,7 +515,7 @@
     }
   }
 
-  // ── Result display ────────────────────────────────────────────────────────
+  //  Result display 
 
   function showResult(data) {
     const card   = document.getElementById('result-card');
@@ -558,7 +558,7 @@
     card.className = 'result';
   }
 
-  // ── Stats ─────────────────────────────────────────────────────────────────
+  //  Stats 
 
   function updateStats() {
     document.getElementById('stat-total').textContent = session.total;
@@ -567,7 +567,7 @@
     document.getElementById('stat-score').textContent = avg === '—' ? avg : avg + '%';
   }
 
-  // ── Boot ──────────────────────────────────────────────────────────────────
+  //  Boot 
 
   init();
 </script>

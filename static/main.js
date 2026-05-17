@@ -1,4 +1,4 @@
-// ── Session stats (client-side) ───────────────────────────────────────────────
+//  Session stats (client-side) 
 const session = { total: 0, correct: 0, scoreSum: 0 };
 
 function updateStats() {
@@ -10,7 +10,7 @@ function updateStats() {
   document.getElementById('stat-score').textContent = avg;
 }
 
-// ── Section switching ─────────────────────────────────────────────────────────
+//  Section switching 
 function switchSection(section) {
   const isPractice = section === 'practice';
   document.getElementById('practice-section').style.display = isPractice ? '' : 'none';
@@ -23,7 +23,7 @@ function switchSection(section) {
   }
 }
 
-// ── Practice controls ─────────────────────────────────────────────────────────
+//  Practice controls 
 function setMode(mode) {
   document.getElementById('mode-hidden').value = mode;
   document.querySelectorAll('#mode-group .pill').forEach(btn => {
@@ -33,7 +33,7 @@ function setMode(mode) {
     mode === 'term_to_def' ? 'block' : 'none';
 }
 
-// ── Study controls ────────────────────────────────────────────────────────────
+//  Study controls 
 let studyReveal = 'hide-def';
 
 function setStudyOrder(order) {
@@ -43,7 +43,7 @@ function setStudyOrder(order) {
   reloadSection('study', document.getElementById('study-unit-hidden').value);
 }
 
-// ── Unit multi-select ─────────────────────────────────────────────────────────
+//  Unit multi-select 
 function toggleUnit(section, unitNum, btn) {
   const hidden  = document.getElementById(section === 'practice' ? 'unit-hidden' : 'study-unit-hidden');
   const pillsId = section === 'practice' ? 'practice-unit-pills' : 'study-unit-pills';
@@ -104,7 +104,7 @@ function hideAll() {
   document.querySelectorAll(`#study-cards ${sel}`).forEach(el => el.classList.add('blurred'));
 }
 
-// ── Keyboard shortcuts ────────────────────────────────────────────────────────
+//  Keyboard shortcuts 
 document.addEventListener('keydown', e => {
   if (document.activeElement?.id !== 'answer-input') return;
 
@@ -121,7 +121,7 @@ document.addEventListener('keydown', e => {
   }
 }, true);
 
-// ── htmx lifecycle ────────────────────────────────────────────────────────────
+//  htmx lifecycle 
 document.body.addEventListener('htmx:afterSettle', () => {
   const resultCard = document.getElementById('result-card');
   const hasResult  = resultCard?.classList.contains('show');

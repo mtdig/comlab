@@ -214,7 +214,7 @@ button.secondary {
 }
 button.secondary:hover { color: var(--text); border-color: var(--text); }
 
-/* ── Result card ── */
+/*  Result card  */
 .result {
   border-radius: var(--radius);
   padding: 20px 22px;
@@ -270,7 +270,7 @@ button.secondary:hover { color: var(--text); border-color: var(--text); }
 .reference-label { color: var(--muted); font-size: .75rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; margin-bottom: 4px; }
 .reference-text { color: var(--text); }
 
-/* ── Session stats strip ── */
+/*  Session stats strip  */
 .stats-strip {
   display: flex;
   gap: 20px;
@@ -292,7 +292,7 @@ button.secondary:hover { color: var(--text); border-color: var(--text); }
 .yellow { color: var(--yellow); }
 .accent { color: var(--accent); }
 
-/* ── Spinner ── */
+/*  Spinner  */
 .spinner {
   display: inline-block;
   width: 16px; height: 16px;
@@ -352,7 +352,7 @@ button.secondary:hover { color: var(--text); border-color: var(--text); }
 }
 .ollama-note strong { color: var(--accent); }
 
-/* ── Section tabs ── */
+/*  Section tabs  */
 .section-tabs {
   display: flex;
   background: var(--surface);
@@ -363,7 +363,7 @@ button.secondary:hover { color: var(--text); border-color: var(--text); }
   margin-bottom: 28px;
 }
 
-/* ── Study section ── */
+/*  Study section  */
 .study-controls {
   display: flex;
   flex-wrap: wrap;

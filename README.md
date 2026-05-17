@@ -78,10 +78,10 @@ If Ollama is unavailable, a basic keyword-overlap fallback is used.
 
 ```
 glossary_trainer/
-├── main.py           # FastAPI backend
-├── glossary.json     # All 300+ terms extracted from the PDF
-├── requirements.txt
-├── progress.db       # Created on first run (SQLite)
-└── static/
-    └── index.html    # Single-file frontend
+├ main.py           # FastAPI backend
+├ glossary.json     # All 300+ terms extracted from the PDF
+├ requirements.txt
+├ progress.db       # Created on first run (SQLite)
+└ static/
+    └ index.html    # Single-file frontend
 ```
