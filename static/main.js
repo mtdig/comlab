@@ -10,6 +10,11 @@ let timerMax      = parseInt(localStorage.getItem('timerMax') ?? '30', 10);
 let timerInterval = null;
 let timerStart    = null;
 
+//  Typing speed tracking
+let typingStart   = null;
+let lastTypingMs  = 0;
+let lastAnswerLen = 0;
+
 //  Session stats (client-side)
 const session     = { total: 0, correct: 0, scoreSum: 0 };
 const sessionTerms = new Set();
@@ -251,6 +256,10 @@ document.body.addEventListener('htmx:beforeRequest', (e) => {
     if (timeTakenInput && expiredInput?.value !== '1') {
       timeTakenInput.value = getTimeTaken();
     }
+    const answerEl = document.getElementById('answer-input');
+    lastAnswerLen  = answerEl ? answerEl.value.length : 0;
+    lastTypingMs   = typingStart ? Date.now() - typingStart : 0;
+    typingStart    = null;
     stopTimer();
     timerStart = null;
   }
@@ -273,7 +282,7 @@ document.body.addEventListener('htmx:afterSettle', () => {
       // Track unique terms seen
       const qWrap = document.getElementById('question-wrap');
       const term  = qWrap?.dataset.term;
-      if (term) sessionTerms.add(term + '|' + (qWrap.dataset.mode || ''));
+      if (term) sessionTerms.add(term);
       updateCoverage();
     } else if (resultCard.dataset.correct === '1') {
       // AI recheck upgraded the answer — patch stats with the score delta
@@ -290,6 +299,13 @@ document.body.addEventListener('htmx:afterSettle', () => {
       requestAnimationFrame(() => requestAnimationFrame(() => { bar.style.width = target; }));
     }
     document.getElementById('next-btn')?.focus();
+    const speedEl = document.getElementById('typing-speed');
+    if (speedEl && lastTypingMs > 0 && lastAnswerLen > 0) {
+      const minutes = lastTypingMs / 60000;
+      const cpm     = Math.round(lastAnswerLen / minutes);
+      const wpm     = Math.round(cpm / 5);
+      speedEl.textContent = `${wpm} wpm · ${cpm} cpm`;
+    }
   } else if (!hasResult) {
     // Apply study reveal mode to freshly loaded study cards
     if (document.getElementById('study-section')?.style.display !== 'none') {
@@ -302,7 +318,14 @@ document.body.addEventListener('htmx:afterSettle', () => {
     } else {
       startTimer();
       updateCoverage();
-      document.getElementById('answer-input')?.focus();
+      typingStart = null;
+      const answerInput = document.getElementById('answer-input');
+      if (answerInput) {
+        answerInput.focus();
+        answerInput.addEventListener('input', () => {
+          if (!typingStart) typingStart = Date.now();
+        });
+      }
     }
   }
 });
@@ -332,4 +355,10 @@ document.addEventListener('DOMContentLoaded', () => {
     startTimer();
   }
   updateCoverage();
+  const answerInput = document.getElementById('answer-input');
+  if (answerInput) {
+    answerInput.addEventListener('input', () => {
+      if (!typingStart) typingStart = Date.now();
+    });
+  }
 });

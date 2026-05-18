@@ -86,6 +86,7 @@
     {% if result.ai_checked and not result.correct %}
     <p class="ai-recheck-note">AI recheck · not counted towards stats</p>
     {% endif %}
+    <div id="typing-speed" class="typing-speed"></div>
     <div class="btn-row" style="margin-top:16px">
       <button id="next-btn" class="primary"
         hx-get="{{ root_path }}/question"

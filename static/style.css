@@ -274,6 +274,7 @@ button.secondary:hover { color: var(--text); border-color: var(--text); }
 .wrong    .score-bar { background: var(--red); }
 
 .feedback { color: var(--muted); font-size: .9rem; margin-bottom: 12px; }
+.typing-speed { font-size: .78rem; color: var(--muted); text-align: right; margin-bottom: 10px; min-height: 1.1em; opacity: .75; }
 
 .reference-box {
   background: var(--surface2);
